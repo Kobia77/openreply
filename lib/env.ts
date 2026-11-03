@@ -36,8 +36,18 @@ const INSTAGRAM_OAUTH_ENV = [
   "NEXTAUTH_SECRET",
 ] as const;
 
+// Extra env vars the Unified login flow needs (see lib/meta/login-mode.ts).
+const UNIFIED_LOGIN_ENV = [
+  "META_LOGIN_CONFIG_ID",
+  "META_INSTAGRAM_ACCOUNT_ID",
+] as const;
+
 export function getMissingInstagramOAuthEnv(): string[] {
-  return INSTAGRAM_OAUTH_ENV.filter((name) => {
+  const required: readonly string[] =
+    process.env.META_LOGIN_MODE === "unified"
+      ? [...INSTAGRAM_OAUTH_ENV, ...UNIFIED_LOGIN_ENV]
+      : INSTAGRAM_OAUTH_ENV;
+  return required.filter((name) => {
     const value = process.env[name];
     if (!value) return true;
     // A malformed key fails later inside encryptToken, after the user has

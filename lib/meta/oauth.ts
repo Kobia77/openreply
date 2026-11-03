@@ -5,7 +5,12 @@ import {
   randomBytes,
   timingSafeEqual,
 } from "crypto";
-import { getEncryptionKeyHex, requireEnv } from "@/lib/env";
+import { getEncryptionKeyHex, getMetaGraphApiVersion, requireEnv } from "@/lib/env";
+import {
+  getLoginConfigId,
+  getUnifiedInstagramAccountId,
+  isUnifiedLogin,
+} from "@/lib/meta/login-mode";
 
 // Instagram API with Instagram Login authorizes on www.instagram.com. The old
 // api.instagram.com/oauth/authorize host belonged to the retired Basic Display
@@ -88,6 +93,20 @@ export function verifyOAuthState(state: string | null): OAuthStatePayload | null
 }
 
 export function getAuthorizationUrl(redirectUri: string, state: string): string {
+  if (isUnifiedLogin()) {
+    // Facebook Login for Business: config_id replaces scope, and a system-user
+    // token configuration requires the authorization code grant.
+    const params = new URLSearchParams({
+      client_id: requireEnv("INSTAGRAM_APP_ID"),
+      config_id: getLoginConfigId(),
+      redirect_uri: redirectUri,
+      response_type: "code",
+      override_default_response_type: "true",
+      state,
+    });
+    return `https://www.facebook.com/${getMetaGraphApiVersion()}/dialog/oauth?${params.toString()}`;
+  }
+
   const params = new URLSearchParams({
     client_id: requireEnv("INSTAGRAM_APP_ID"),
     redirect_uri: redirectUri,
@@ -104,6 +123,8 @@ export async function exchangeCodeForToken(
   code: string,
   redirectUri: string
 ): Promise<{ accessToken: string; userId: string }> {
+  if (isUnifiedLogin()) return exchangeUnifiedCodeForToken(code, redirectUri);
+
   const body = new URLSearchParams({
     client_id: requireEnv("INSTAGRAM_APP_ID"),
     client_secret: requireEnv("INSTAGRAM_APP_SECRET"),
@@ -129,6 +150,34 @@ export async function exchangeCodeForToken(
   return {
     accessToken: data.access_token,
     userId: String(data.user_id),
+  };
+}
+
+async function exchangeUnifiedCodeForToken(
+  code: string,
+  redirectUri: string
+): Promise<{ accessToken: string; userId: string }> {
+  const url = new URL(
+    `https://graph.facebook.com/${getMetaGraphApiVersion()}/oauth/access_token`
+  );
+  url.searchParams.set("client_id", requireEnv("INSTAGRAM_APP_ID"));
+  url.searchParams.set("client_secret", requireEnv("INSTAGRAM_APP_SECRET"));
+  url.searchParams.set("redirect_uri", redirectUri);
+  url.searchParams.set("code", code);
+
+  const response = await fetch(url.toString());
+  const data = await response.json();
+  if (!response.ok || !data.access_token) {
+    throw new Error(
+      `Token exchange failed: ${data?.error?.message || JSON.stringify(data)}`
+    );
+  }
+
+  // The system-user token never expires and does not identify an Instagram
+  // account by itself, so the configured account ID stands in for user_id.
+  return {
+    accessToken: data.access_token,
+    userId: getUnifiedInstagramAccountId(),
   };
 }
 

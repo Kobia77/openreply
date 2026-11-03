@@ -10,6 +10,7 @@ import {
   verifyOAuthState,
 } from "@/lib/meta/oauth";
 import { canManageWorkspace } from "@/lib/workspace-access";
+import { isUnifiedLogin } from "@/lib/meta/login-mode";
 
 export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get("code");
@@ -47,8 +48,12 @@ export async function GET(request: NextRequest) {
       code,
       redirectUri
     );
-    const { accessToken: longLivedToken, expiresIn } =
-      await getLongLivedToken(shortLivedToken);
+    // A Unified login system-user token is already long-lived and never
+    // expires, so there is nothing to exchange; a null expiry also keeps it
+    // out of the daily token-refresh cron.
+    const { accessToken: longLivedToken, expiresIn } = isUnifiedLogin()
+      ? { accessToken: shortLivedToken, expiresIn: null }
+      : await getLongLivedToken(shortLivedToken);
     const userInfo = await getUserInfo(longLivedToken);
     // Webhooks and the messaging API key off the professional account ID
     // (user_id), not the app-scoped `id`. Store user_id so comment webhooks
@@ -67,7 +72,8 @@ export async function GET(request: NextRequest) {
     }
 
     const encryptedToken = encryptToken(longLivedToken);
-    const tokenExpiresAt = new Date(Date.now() + expiresIn * 1000);
+    const tokenExpiresAt =
+      expiresIn === null ? null : new Date(Date.now() + expiresIn * 1000);
 
     let webhookSubscribed = false;
     try {
