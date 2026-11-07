@@ -4,21 +4,29 @@ import { apiError, ApiError, checkOrigin, readJson } from "@/lib/integrations/ht
 import { callTool, listTools } from "@/lib/integrations/mcp";
 
 const versions = ["2025-03-26", "2025-06-18", "2025-11-25"];
+const claudeOrigins = ["https://claude.ai", "https://claude.com"];
+/** One line per rejected request, so failed client connections show up in the logs. Never logs the key. */
+function rejected(request: Request, error: unknown) {
+  const response = apiError(error);
+  const h = request.headers;
+  console.warn(`[mcp] rejected ${request.method} ${response.status} "${error instanceof Error ? error.message : "error"}" origin=${h.get("origin") ?? "-"} version=${h.get("mcp-protocol-version") ?? "-"} accept=${h.get("accept") ?? "-"} ua=${h.get("user-agent") ?? "-"}`);
+  return response;
+}
 const rpcSchema = z.object({ jsonrpc: z.literal("2.0"), id: z.union([z.string(), z.number()]).optional(), method: z.string(), params: z.unknown().optional() });
 export async function GET(request: Request) {
-  try { checkOrigin(request); await authenticateService(request); return new Response(null, { status: 405, headers: { Allow: "POST" } }); }
-  catch (error) { return apiError(error); }
+  try { checkOrigin(request, claudeOrigins); await authenticateService(request); return new Response(null, { status: 405, headers: { Allow: "POST" } }); }
+  catch (error) { return rejected(request, error); }
 }
 export async function POST(request: Request) {
   try {
-    checkOrigin(request);
+    checkOrigin(request, claudeOrigins);
     const context = await authenticateService(request);
     const version = request.headers.get("mcp-protocol-version");
     if (version && !versions.includes(version)) throw new ApiError("Unsupported MCP protocol version");
     const accept = request.headers.get("accept") ?? "";
     if (!accept.includes("application/json") || !accept.includes("text/event-stream")) throw new ApiError("Accept application/json and text/event-stream required", 406);
     const parsed = rpcSchema.safeParse(await readJson(request));
-    if (!parsed.success) return Response.json({ jsonrpc: "2.0", id: null, error: { code: -32600, message: "Invalid request" } }, { status: 400 });
+    if (!parsed.success) { console.warn("[mcp] rejected invalid JSON-RPC body"); return Response.json({ jsonrpc: "2.0", id: null, error: { code: -32600, message: "Invalid request" } }, { status: 400 }); }
     const rpc = parsed.data;
     if (rpc.id === undefined) {
       if (rpc.method !== "notifications/initialized" && rpc.method !== "notifications/cancelled") throw new ApiError("Unknown notification");
@@ -39,5 +47,5 @@ export async function POST(request: Request) {
       catch (error) { result = { isError: true, content: [{ type: "text", text: error instanceof ApiError ? error.message : "Internal tool error" }] }; }
     } else return Response.json({ jsonrpc: "2.0", id: rpc.id, error: { code: -32601, message: "Method not found" } });
     return Response.json({ jsonrpc: "2.0", id: rpc.id, result }, { headers: { "Cache-Control": "no-store" } });
-  } catch (error) { return apiError(error); }
+  } catch (error) { return rejected(request, error); }
 }

@@ -30,7 +30,7 @@ export function requireScope(context: ServiceContext, scope: ServiceScope) {
 }
 
 export async function authenticateService(request: Request): Promise<ServiceContext> {
-  const token = request.headers.get("authorization")?.match(/^Bearer (orp_[A-Za-z0-9_-]{43})$/)?.[1];
+  const token = request.headers.get("authorization")?.match(/^bearer (orp_[A-Za-z0-9_-]{43})$/i)?.[1];
   if (!token) throw new ApiError("Bearer service key required", 401);
   const key = await prisma.serviceKey.findUnique({ where: { tokenHash: hashServiceToken(token) } });
   if (!key || key.revokedAt || key.expiresAt <= new Date()) throw new ApiError("Invalid or expired service key", 401);

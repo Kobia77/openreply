@@ -27,11 +27,11 @@ export async function readJson(request: Request, maxBytes = 64 * 1024): Promise<
   catch { throw new ApiError("Invalid JSON"); }
 }
 
-export function checkOrigin(request: Request) {
+export function checkOrigin(request: Request, extraOrigins: readonly string[] = []) {
   const origin = request.headers.get("origin");
   if (!origin) return;
   const expected = new URL(process.env.NEXTAUTH_URL ?? request.url).origin;
-  if (origin !== expected) throw new ApiError("Origin not allowed", 403);
+  if (origin !== expected && !extraOrigins.includes(origin)) throw new ApiError("Origin not allowed", 403);
 }
 
 export function apiError(error: unknown) {
