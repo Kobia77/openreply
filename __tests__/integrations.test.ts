@@ -114,8 +114,9 @@ describe("key management", () => {
 describe("read-only MCP and REST", () => {
   it("advertises only scoped read-only tools", async () => {
     expect(listTools({ ...context, scopes: [] })).toEqual([]);
-    expect(listTools(context).map(tool => tool.name)).toEqual(["list_campaigns", "get_campaign", "get_campaign_stats"]);
-    expect(listTools(context).every(tool => tool.annotations.readOnlyHint)).toBe(true);
+    expect(listTools(context).map(tool => tool.name)).toEqual(["list_campaigns", "get_campaign", "get_campaign_stats", "list_recent_posts",
+      "create_campaign", "update_campaign", "set_campaign_active", "duplicate_campaign", "delete_campaign"]);
+    expect(listTools(context).find(tool => tool.name === "delete_campaign")?.annotations.destructiveHint).toBe(true);
     await expect(callTool(context, "create_draft", {})).rejects.toMatchObject({ status: 404 });
     await expect(callTool({ ...context, scopes: [] }, "get_campaign", { id: "test" })).rejects.toMatchObject({ status: 403 });
   });

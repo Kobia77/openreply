@@ -24,7 +24,7 @@ export default function IntegrationsPage() {
   useEffect(() => { void Promise.resolve().then(load).catch(e => setNotice(e.message)); }, []);
 
   async function create() {
-    if (!window.confirm(t("Create a read-only workspace key for {days} days? Anyone with this key can read your campaigns.", { days }))) return;
+    if (!window.confirm(t("Create a workspace key for {days} days? Anyone with this key can read and change your campaigns.", { days }))) return;
     setBusy(true); setToken(""); setNotice("");
     try {
       const response = await fetch("/api/integrations/keys", {
@@ -53,7 +53,7 @@ export default function IntegrationsPage() {
 
   return <div className="mx-auto max-w-4xl space-y-6 p-6">
     <h1 className="text-2xl font-semibold">{t("API & MCP")}</h1>
-    <p className="text-muted">{t("Workspace-scoped, read-only keys. No key can modify campaigns or send messages. Only admins and owners can manage keys.")}</p>
+    <p className="text-muted">{t("Workspace-scoped keys. A key can read, create, change and delete campaigns. Only admins and owners can manage keys.")}</p>
     {notice && <p role="status">{notice}</p>}
     <section className="space-y-3 rounded border border-border p-4">
       <label className="block">{t("Key name")}<input maxLength={100} disabled={busy} className="w-full rounded border border-border p-2" value={name} onChange={e => setName(e.target.value)} /></label>

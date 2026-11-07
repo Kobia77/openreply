@@ -1,4 +1,4 @@
-# Read-only API and MCP
+# API and MCP
 
 Workspace owners and admins can create keys at **API & MCP** (`/integrations`).
 The UI offers 30, 60 or 90 days (default: 30). The API accepts whole days from
@@ -33,7 +33,7 @@ In Claude, use **No authentication** plus this custom request header **only if
 your client offers request headers**. Clients requiring OAuth are not supported.
 Never switch to public access to work around a client limitation.
 
-Tools (all read-only; scope `campaigns:read`):
+Tools (scope `campaigns:read`):
 
 - `list_campaigns`: up to 100 compact campaign summaries, newest first.
 - `get_campaign` with `{ "id": "..." }`: settings, ordered `trackedLinks`, and
@@ -42,9 +42,17 @@ Tools (all read-only; scope `campaigns:read`):
 - `get_campaign_stats` with `{ "id": "..." }`: aggregate send outcomes and raw
   link requests. These are **not** unique recipients or CRM conversions.
 
-Example safe verification: ask your client to list campaigns, then read one
-campaign's destination URLs without changing anything. There are no mutation,
-activation, publish, account-token or messaging tools in this contribution.
+- `list_recent_posts` with optional `{ "limit": 1-50 }`: recent posts of the
+  connected account (`id`, caption, permalink). Use `id` as `postId`.
+- `create_campaign`: same fields and validation as the dashboard. Starts
+  **paused** unless `isActive: true` is passed.
+- `update_campaign` with `{ "id": "...", ...fields }`: only passed fields change.
+- `set_campaign_active` with `{ "id": "...", "isActive": true|false }`.
+- `duplicate_campaign` with `{ "id": "..." }`: paused copy.
+- `delete_campaign` with `{ "id": "..." }`: permanent.
+
+Write tools share `lib/campaigns/mutations.ts` with the dashboard route, so the
+same rules apply. The REST API below stays read-only.
 
 ## REST
 
