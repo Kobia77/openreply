@@ -45,4 +45,4 @@ next-env.d.ts
 .gstack/
 
 # Local agent notes (holds identifiers; fork is public)
-CLAUDE.md
+CLAUDE.local.md
