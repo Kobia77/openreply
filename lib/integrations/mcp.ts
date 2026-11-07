@@ -22,6 +22,14 @@ const setActiveArgs = z.object({ id: z.string().min(1).max(100), isActive: z.boo
 
 const json = (schema: z.ZodType) => z.toJSONSchema(schema, { io: "input" });
 
+// The shared schema defaults isActive to true (the dashboard creates live campaigns),
+// but MCP creates paused ones, so the schema clients see must say so too.
+const createInputSchema = (() => {
+  const schema = json(createAutomationSchema) as { properties: Record<string, Record<string, unknown>> };
+  schema.properties.isActive = { ...schema.properties.isActive, default: false };
+  return schema;
+})();
+
 type Kind = "read" | "write" | "destructive";
 const tools: { name: string; description: string; kind: Kind; inputSchema: unknown }[] = [
   { name: "list_campaigns", kind: "read", inputSchema: json(noArgs),
@@ -32,7 +40,7 @@ const tools: { name: string; description: string; kind: Kind; inputSchema: unkno
     description: "Read aggregate send outcomes and raw link requests, not recipient conversions." },
   { name: "list_recent_posts", kind: "read", inputSchema: json(recentPostsArgs),
     description: "List recent Instagram posts of the connected account (id, caption, permalink). Use the id as postId when creating a campaign for a specific post." },
-  { name: "create_campaign", kind: "write", inputSchema: json(createAutomationSchema),
+  { name: "create_campaign", kind: "write", inputSchema: createInputSchema,
     description: "Create a comment-to-DM campaign. Same fields and rules as the dashboard. Trigger: postId (from list_recent_posts), matchAnyPost or pendingNextReel. Needs keywords or matchAnyWord. Created PAUSED unless isActive is true." },
   { name: "update_campaign", kind: "write", inputSchema: json(updateArgs),
     description: "Change fields of a campaign by id. Only the fields you pass change. Empty string clears a destination URL." },
