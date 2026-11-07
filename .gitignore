@@ -43,3 +43,6 @@ next-env.d.ts
 
 /app/generated/prisma
 .gstack/
+
+# Local agent notes (holds identifiers; fork is public)
+CLAUDE.md
